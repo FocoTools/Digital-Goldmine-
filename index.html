@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script type='text/javascript' src='//pl25778425.profitablecpmrate.com/09/03/99/0903999020af1c96f273a2f61a536cde.js'></script>
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ad Reward System</title>
@@ -15,7 +14,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            padding: 20px 0;
         }
         .container {
             text-align: center;
@@ -24,6 +24,7 @@
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
             width: 300px;
+            margin: 10px 0;
         }
         .container h1 {
             font-size: 20px;
@@ -119,15 +120,47 @@
             font-size: 14px;
             margin: 5px 0;
         }
+        .referral-section {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            display: none;
+        }
+        .referral-link {
+            background-color: #333;
+            padding: 8px;
+            border-radius: 5px;
+            word-break: break-all;
+            font-size: 12px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .referral-stats {
+            font-size: 13px;
+            margin: 5px 0;
+        }
+        .loading {
+            display: none;
+            margin: 10px 0;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+        }
     </style>
-<link rel="me" href="https://www.blogger.com/profile/12615525391666988711" />
-<meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109'/>
-<meta name='google-adsense-platform-domain' content='blogspot.com'/>
-<link rel="me" href="https://www.blogger.com/profile/18369340732868072285" />
-<meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109'/>
-<meta name='google-adsense-platform-domain' content='blogspot.com'/>
 </head>
 <body>
+    <div class="notification" id="notification"></div>
+    
     <div class="container">
         <h1>Auto MoneTag Ads</h1>
         <div class="developer" onclick="window.location.href='https://t.me/digitalgoldmine06'">Developer by ZAHID VHAI</div>
@@ -135,11 +168,13 @@
         <!-- Display User Info -->
         <div class="user-info">
             <p>Welcome, <span id="user-name"></span></p>
+            <p>User ID: <span id="user-id"></span></p>
         </div>
 
         <div class="stats">
             <p>Watched Ads: <span id="watched-ads">0</span></p>
             <p>Earned Points: <span id="earned-points">0</span></p>
+            <p>Referral Points: <span id="referral-points">0</span></p>
         </div>
         <div class="progress-circle">
             <span id="ads-progress">0%</span>
@@ -147,9 +182,13 @@
         <div class="buttons">
             <button id="watch-ad-btn" onclick="watchAd()">Watch Ad</button>
             <button id="auto-ad-btn" onclick="startAutoAds()">Auto Show Ads</button>
-            <button id="stop-auto-btn" onclick="stopAutoAds()">Stop Auto Ads</button>
-           
+            <button id="stop-auto-btn" onclick="stopAutoAds()" disabled>Stop Auto Ads</button>
+            <button onclick="showWithdrawForm()">Withdraw Points</button>
+            <button onclick="showReferralSection()">Refer & Earn</button>
         </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">Loading...</div>
 
         <!-- Withdraw Section -->
         <div class="withdraw-section" id="withdraw-section">
@@ -164,45 +203,256 @@
             <button onclick="withdrawPoints()">Withdraw</button>
             <p id="withdraw-status"></p>
         </div>
+
+        <!-- Referral Section -->
+        <div class="referral-section" id="referral-section">
+            <h3 style="color: orange; margin-bottom: 10px;">Refer & Earn</h3>
+            <p>Earn 20% of your referrals' earnings!</p>
+            
+            <div class="referral-stats">
+                <p>Total Referrals: <span id="total-referrals">0</span></p>
+                <p>Earned from Referrals: <span id="referral-earnings">0</span> points</p>
+            </div>
+            
+            <p>Your Referral Link:</p>
+            <div class="referral-link" id="referral-link" onclick="copyReferralLink()">
+                Loading...
+            </div>
+            <p style="font-size: 12px; color: #aaa;">Click to copy</p>
+            
+            <button onclick="shareReferralLink()" style="margin-top: 10px;">Share Link</button>
+            <button onclick="hideReferralSection()" style="margin-top: 5px; background: #444;">Close</button>
+        </div>
     </div>
 
     <script src='//jagnaimsee.net/vignette.min.js' data-zone='9509127' data-sdk='show_9509127'></script>
 
     <script>
+        // Configuration
         const MIN_WITHDRAW_POINTS = 5;
-        const ADMIN_USER_ID = 7694112804;
-        const BOT_TOKEN = "7474129750:AAHDOrtYnulZqB5V3CH2XaHR_02t_PVwi7M";
+        const BOT_TOKEN = "7622695645:AAEKXzcKrd82UZuU13Wv21rSL4W6Fx4HLw8";
+        const REFERRAL_BONUS_PERCENT = 0.20; // 20% of referee's earnings
+        const API_BASE_URL = "https://your-api-server.com"; // Replace with your actual API server
+        const AD_ZONE_ID = '9509127'; // Updated data zone ID
+        
+        // User data
         let watchedAdsCount = 0;
         let earnedPoints = 0.00;
+        let referralPoints = 0.00;
+        let totalReferrals = 0;
         let autoAdInterval;
+        let userId = '';
+        let referralLink = "";
+        let telegramUserId = '';
+        let telegramUsername = '';
+        let telegramFirstName = '';
+        let telegramLastName = '';
 
-        // Simulate user name from Telegram User ID (replace with actual logic to get user info)
-        const telegramUserName = "@exampleUser"; // Replace this line with the actual logic to fetch username
-        document.getElementById("user-name").textContent = telegramUserName;
+        // DOM Elements
+        const notificationEl = document.getElementById('notification');
+        
+        // Initialize the application
+        async function initApp() {
+            showLoading();
+            
+            // Check for Telegram WebApp data
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                telegramUserId = tg.initDataUnsafe.user?.id || '';
+                telegramUsername = tg.initDataUnsafe.user?.username || '';
+                telegramFirstName = tg.initDataUnsafe.user?.first_name || '';
+                telegramLastName = tg.initDataUnsafe.user?.last_name || '';
+                
+                // Set user name display
+                const displayName = telegramUsername ? `@${telegramUsername}` : 
+                                  `${telegramFirstName} ${telegramLastName}`.trim() || 'User';
+                document.getElementById("user-name").textContent = displayName;
+            }
+            
+            // Check for referral parameter in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const referrerId = urlParams.get('ref');
+            
+            // Get or create user ID
+            userId = localStorage.getItem('userId') || generateUserId();
+            localStorage.setItem('userId', userId);
+            document.getElementById('user-id').textContent = userId;
+            
+            // Create referral link
+            referralLink = `${window.location.origin}${window.location.pathname}?ref=${userId}`;
+            document.getElementById('referral-link').textContent = referralLink;
+            
+            // Check if this is a new user with a referrer
+            if (referrerId && referrerId !== userId && !localStorage.getItem('referrerRegistered')) {
+                await registerReferral(referrerId);
+                localStorage.setItem('referrerRegistered', 'true');
+            }
+            
+            // Load user data
+            await loadUserData();
+            
+            hideLoading();
+        }
 
-        // Check if user data is saved in localStorage
-        if (localStorage.getItem('watchedAdsCount')) {
-            watchedAdsCount = parseInt(localStorage.getItem('watchedAdsCount'));
-            earnedPoints = parseFloat(localStorage.getItem('earnedPoints'));
+        // Generate a unique user ID
+        function generateUserId() {
+            return 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
+        }
+
+        // Register a referral
+        async function registerReferral(referrerId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/register-referral`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        referrerId: referrerId,
+                        referredId: userId,
+                        telegramData: {
+                            userId: telegramUserId,
+                            username: telegramUsername,
+                            firstName: telegramFirstName,
+                            lastName: telegramLastName
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showNotification("Referral registered successfully!");
+                }
+            } catch (error) {
+                console.error('Error registering referral:', error);
+            }
+        }
+
+        // Load user data from server
+        async function loadUserData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/user-data?userId=${userId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    watchedAdsCount = data.watchedAds || 0;
+                    earnedPoints = data.earnedPoints || 0;
+                    referralPoints = data.referralPoints || 0;
+                    totalReferrals = data.totalReferrals || 0;
+                    
+                    // Update UI
+                    updateUI();
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                // Fallback to local storage
+                loadFromLocalStorage();
+            }
+        }
+
+        // Load data from local storage
+        function loadFromLocalStorage() {
+            if (localStorage.getItem('watchedAdsCount')) {
+                watchedAdsCount = parseInt(localStorage.getItem('watchedAdsCount'));
+                earnedPoints = parseFloat(localStorage.getItem('earnedPoints'));
+                referralPoints = parseFloat(localStorage.getItem('referralPoints') || 0);
+                totalReferrals = parseInt(localStorage.getItem('totalReferrals') || 0);
+                
+                updateUI();
+            }
+        }
+
+        // Update UI with current data
+        function updateUI() {
             document.getElementById('watched-ads').textContent = watchedAdsCount;
-            document.getElementById('earned-points').textContent = earnedPoints.toFixed(2);
+            document.getElementById('earned-points').textContent = (earnedPoints + referralPoints).toFixed(2);
+            document.getElementById('referral-points').textContent = referralPoints.toFixed(2);
+            document.getElementById('total-referrals').textContent = totalReferrals;
+            document.getElementById('referral-earnings').textContent = referralPoints.toFixed(2);
+            updateProgressCircle();
+        }
+
+        // Save data to server
+        async function saveUserData() {
+            try {
+                await fetch(`${API_BASE_URL}/save-user-data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        watchedAds: watchedAdsCount,
+                        earnedPoints: earnedPoints,
+                        referralPoints: referralPoints,
+                        totalReferrals: totalReferrals,
+                        telegramData: {
+                            userId: telegramUserId,
+                            username: telegramUsername,
+                            firstName: telegramFirstName,
+                            lastName: telegramLastName
+                        }
+                    })
+                });
+            } catch (error) {
+                console.error('Error saving user data:', error);
+                // Fallback to local storage
+                saveToLocalStorage();
+            }
+        }
+
+        // Save data to local storage
+        function saveToLocalStorage() {
+            localStorage.setItem('watchedAdsCount', watchedAdsCount);
+            localStorage.setItem('earnedPoints', earnedPoints.toFixed(2));
+            localStorage.setItem('referralPoints', referralPoints.toFixed(2));
+            localStorage.setItem('totalReferrals', totalReferrals);
         }
 
         // Function to watch an ad and update stats
-        function watchAd() {
+        async function watchAd() {
             if (typeof show_9509127 === 'function') {
-                show_9509127().then(() => {
+                showLoading();
+                
+                try {
+                    await show_9509127();
+                    
                     // When the ad is shown, we add points
                     watchedAdsCount++;
-                    document.getElementById('watched-ads').textContent = watchedAdsCount;
-                    earnedPoints += 0.50; // Add 0.50 points per ad watched
-                    document.getElementById('earned-points').textContent = earnedPoints.toFixed(2);
-                    localStorage.setItem('watchedAdsCount', watchedAdsCount);
-                    localStorage.setItem('earnedPoints', earnedPoints.toFixed(2));
-
-                    // Update progress circle
-                    updateProgressCircle();
-                });
+                    const pointsEarned = 0.50;
+                    earnedPoints += pointsEarned;
+                    
+                    // Check if user has a referrer and award bonus
+                    const referrer = localStorage.getItem('referrer');
+                    if (referrer) {
+                        const referralBonus = pointsEarned * REFERRAL_BONUS_PERCENT;
+                        
+                        // Send referral bonus to server
+                        await fetch(`${API_BASE_URL}/add-referral-bonus`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                referrerId: referrer,
+                                referredId: userId,
+                                bonusAmount: referralBonus,
+                                pointsEarned: pointsEarned
+                            })
+                        });
+                    }
+                    
+                    // Update UI and save data
+                    updateUI();
+                    await saveUserData();
+                    
+                    showNotification("You earned 0.50 points!");
+                } catch (error) {
+                    console.error('Error showing ad:', error);
+                    showNotification("Error showing ad. Please try again.", true);
+                } finally {
+                    hideLoading();
+                }
             }
         }
 
@@ -217,6 +467,7 @@
             autoAdInterval = setInterval(watchAd, 5000); // Auto show ad every 5 seconds
             document.getElementById('auto-ad-btn').disabled = true;
             document.getElementById('stop-auto-btn').disabled = false;
+            showNotification("Auto ads started!");
         }
 
         // Function to stop auto ads
@@ -224,16 +475,18 @@
             clearInterval(autoAdInterval);
             document.getElementById('auto-ad-btn').disabled = false;
             document.getElementById('stop-auto-btn').disabled = true;
+            showNotification("Auto ads stopped!");
         }
 
         // Function to show withdraw form
         function showWithdrawForm() {
             document.getElementById('withdraw-section').style.display = 'block';
+            document.getElementById('referral-section').style.display = 'none';
         }
 
         // Function to handle withdrawal
-        function withdrawPoints() {
-            const amount = document.getElementById('withdraw-amount').value;
+        async function withdrawPoints() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
             const paymentMethod = document.getElementById('payment-method').value;
             const phoneNumber = document.getElementById('withdraw-phone').value;
 
@@ -242,42 +495,155 @@
                 return;
             }
 
-            if (amount > earnedPoints) {
-                document.getElementById('withdraw-status').textContent = `Insufficient balance. You have ${earnedPoints.toFixed(2)} points.`;
+            const totalPoints = earnedPoints + referralPoints;
+            if (amount > totalPoints) {
+                document.getElementById('withdraw-status').textContent = `Insufficient balance. You have ${totalPoints.toFixed(2)} points.`;
                 return;
             }
 
-            // Subtract points from earnedPoints after successful withdrawal
-            earnedPoints -= parseFloat(amount);
-            document.getElementById('earned-points').textContent = earnedPoints.toFixed(2);
-
-            // Save the updated balance in localStorage
-            localStorage.setItem('earnedPoints', earnedPoints.toFixed(2));
-
-            // Send withdrawal request to admin via Telegram
-            const message = `Withdrawal Request from ${telegramUserName}:\nAmount: ${amount} points\nPayment Method: ${paymentMethod}\nPhone Number: ${phoneNumber}`;
-            sendWithdrawRequestToAdmin(message);
-
-            // Show success message
-            document.getElementById('withdraw-status').textContent = 'Withdrawal request sent successfully!';
-
-            // Clear form
-            document.getElementById('withdraw-amount').value = '';
-            document.getElementById('withdraw-phone').value = '';
+            showLoading();
+            
+            try {
+                // First use earned points, then referral points
+                let pointsToDeduct = amount;
+                let fromEarned = Math.min(pointsToDeduct, earnedPoints);
+                pointsToDeduct -= fromEarned;
+                let fromReferral = Math.min(pointsToDeduct, referralPoints);
+                
+                // Update local values
+                earnedPoints -= fromEarned;
+                referralPoints -= fromReferral;
+                
+                // Send withdrawal request to server
+                const response = await fetch(`${API_BASE_URL}/withdraw`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        amount: amount,
+                        paymentMethod: paymentMethod,
+                        phoneNumber: phoneNumber,
+                        telegramUserId: telegramUserId,
+                        telegramUsername: telegramUsername
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update UI and save data
+                    updateUI();
+                    await saveUserData();
+                    
+                    document.getElementById('withdraw-status').textContent = 'Withdrawal request sent successfully!';
+                    document.getElementById('withdraw-amount').value = '';
+                    document.getElementById('withdraw-phone').value = '';
+                    
+                    showNotification("Withdrawal request submitted!");
+                } else {
+                    document.getElementById('withdraw-status').textContent = data.message || 'Error processing withdrawal';
+                }
+            } catch (error) {
+                console.error('Error processing withdrawal:', error);
+                document.getElementById('withdraw-status').textContent = 'Error processing withdrawal. Please try again.';
+            } finally {
+                hideLoading();
+            }
         }
 
-        // Function to send withdrawal request to admin
-        function sendWithdrawRequestToAdmin(message) {
-            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${ADMIN_USER_ID}&text=${encodeURIComponent(message)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.ok) {
-                        console.log('Message sent to admin');
-                    }
+        // Referral system functions
+        function showReferralSection() {
+            document.getElementById('referral-section').style.display = 'block';
+            document.getElementById('withdraw-section').style.display = 'none';
+        }
+
+        function hideReferralSection() {
+            document.getElementById('referral-section').style.display = 'none';
+        }
+
+        function copyReferralLink() {
+            navigator.clipboard.writeText(referralLink)
+                .then(() => {
+                    const linkElement = document.getElementById('referral-link');
+                    linkElement.textContent = "Copied to clipboard!";
+                    setTimeout(() => {
+                        linkElement.textContent = referralLink;
+                    }, 2000);
+                    showNotification("Referral link copied!");
                 })
-                .catch(error => console.error('Error sending message:', error));
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                    showNotification("Failed to copy link", true);
+                });
         }
+
+        function shareReferralLink() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Join and earn money with me!',
+                    text: 'Sign up using my referral link and we both earn bonus points!',
+                    url: referralLink,
+                })
+                .then(() => {
+                    showNotification("Referral link shared successfully!");
+                    logReferralShare();
+                })
+                .catch((error) => {
+                    console.log('Error sharing:', error);
+                    showNotification("Error sharing link", true);
+                });
+            } else {
+                // Fallback for browsers that don't support the Web Share API
+                const shareText = `Join and earn money with me! Sign up using my referral link: ${referralLink}`;
+                prompt("Copy your referral link:", shareText);
+                copyReferralLink();
+                logReferralShare();
+            }
+        }
+
+        // Log when user shares their referral link
+        async function logReferralShare() {
+            try {
+                await fetch(`${API_BASE_URL}/log-referral-share`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        telegramUserId: telegramUserId
+                    })
+                });
+            } catch (error) {
+                console.error('Error logging referral share:', error);
+            }
+        }
+
+        // Show notification
+        function showNotification(message, isError = false) {
+            notificationEl.textContent = message;
+            notificationEl.style.backgroundColor = isError ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+            notificationEl.style.display = 'block';
+            
+            setTimeout(() => {
+                notificationEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // Show loading indicator
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Initialize the app when page loads
+        window.onload = initApp;
     </script>
 </body>
 </html>
-;
